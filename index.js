@@ -85,6 +85,52 @@ function parse(str, options) {
 /**
  * Serialize data into a cookie header.
  *
+ * If the first parameter is an object, serialize the key-value pairs
+ * in the object into an array of cookie strings suitable for http headers.
+ * An optional options object can be used to specify the encoding and cookie
+ * parameters.
+ *
+ * If the first parameter is a string, serialize the name value pair
+ * into a cookie string suitable for http headers. An optional options
+ * object specifies cookie parameters and encoding.
+ *
+ * serialize('foo', 'bar', { httpOnly: true })
+ *   => "foo=bar; httpOnly"
+ *
+ * serialize({ foo: 'bar', cat: 'meow' }, { httpOnly: true })
+ *  => ["foo=bar; httpOnly", "cat=meow; httpOnly"]
+ *
+ * @param {string} name
+ * @param {string} val
+ * @param {object} [options]
+ * @return {string}
+ * @public
+ */
+
+function serialize(name, val, options) {
+  if( typeof name === 'object') {
+    var cookies = name;
+    var serializeOptions = val;
+
+    var cookieNames = Object.keys(cookies);
+    if(0 === cookieNames.length) {
+      return undefined;
+    } else {
+      var serializedCookies = new Array(cookieNames.length);
+      for(var i=0; i<cookieNames.length; i++) {
+          serializedCookies[i] = serializeNameValue(cookieNames[i], cookies[cookieNames[i]], serializeOptions);
+      }
+
+      return serializedCookies;
+    }
+  } else {
+    return serializeNameValue(name, val, options);
+  }
+}
+
+/**
+ * Serialize name value pair into a cookie header.
+ *
  * Serialize the a name value pair into a cookie string suitable for
  * http headers. An optional options object specified cookie parameters.
  *
@@ -95,10 +141,10 @@ function parse(str, options) {
  * @param {string} val
  * @param {object} [options]
  * @return {string}
- * @public
+ * @private
  */
 
-function serialize(name, val, options) {
+function serializeNameValue(name, val, options) {
   var opt = options || {};
   var enc = opt.encode || encode;
 
