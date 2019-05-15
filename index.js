@@ -22,7 +22,7 @@ exports.serialize = serialize;
 
 var decode = decodeURIComponent;
 var encode = encodeURIComponent;
-var pairSplitRegExp = /; */;
+var trimmest = require('trimmest');
 
 /**
  * RegExp to match field-content in RFC 7230 sec 3.2
@@ -53,30 +53,46 @@ function parse(str, options) {
 
   var obj = {}
   var opt = options || {};
-  var pairs = str.split(pairSplitRegExp);
   var dec = opt.decode || decode;
 
-  for (var i = 0; i < pairs.length; i++) {
-    var pair = pairs[i];
-    var eq_idx = pair.indexOf('=');
+  var index = 0;
+  while (index < str.length) {
+    var equals = str.indexOf('=', index);
+    // No more cookie-pairs.
+    if (-1 === equals) {
+      break;
+    }
 
-    // skip things that don't look like key=value
-    if (eq_idx < 0) {
+    var end = str.indexOf(';', index);
+    if (-1 === end) {
+      end = str.length;
+    } else if (end < equals) {
+      // Semicolon detected in our cookie-pair,
+      // backtrack from the equals sign to find our real starting index.
+      index = str.lastIndexOf(';', equals - 1) + 1;
       continue;
     }
 
-    var key = pair.substr(0, eq_idx).trim()
-    var val = pair.substr(++eq_idx, pair.length).trim();
+    var key = trimmest(str, index, equals);
 
-    // quoted values
-    if ('"' == val[0]) {
-      val = val.slice(1, -1);
+    // Only assign once.
+    if (undefined === obj[key]) {
+      var val = trimmest(str, equals + 1, end);
+
+      // Strip quoted values.
+      if (0x22 === val.charCodeAt(0)) {
+        val = val.slice(1, -1);
+      }
+
+      // Only decode when caller has a custom decoder,
+      // or when we know a percent is in the value.
+      if (dec !== decode || -1 !== val.indexOf('%')) {
+        val = tryDecode(val, dec);
+      }
+      obj[key] = val;
     }
 
-    // only assign once
-    if (undefined == obj[key]) {
-      obj[key] = tryDecode(val, dec);
-    }
+    index = end + 1;
   }
 
   return obj;
